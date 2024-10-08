@@ -18,6 +18,7 @@ logging.basicConfig(
 class ManifestProcessor:
     BASE_URL: str = "https://git.codelinaro.org/clo/la"
     MAIN_MANIFEST_PATH: str = "la/vendor/manifest/-/raw/release/{tag}.xml"
+    BLACKLIST: List[str] = ["wfd", "test", "SnapdragonCamera"]
 
     def __init__(self, tag: str):
         self.tag: str = tag
@@ -43,32 +44,52 @@ class ManifestProcessor:
             self.logger.warning("No 'refs' element found in the main manifest.")
             return []
 
-        return [
-            (
-                image.get("name", ""),
-                image.get("tag", ""),
-                self.generate_url(
-                    image.get("project", ""),
+        result = []
+        for image in refs.findall("image"):
+            name = image.get("name", "")
+            if "QSSI" in name:
+                self.logger.info(f"Ignoring QSSI image: {name}")
+                continue
+            result.append(
+                (
+                    name,
                     image.get("tag", ""),
-                ),
+                    self.generate_url(
+                        image.get("project", ""),
+                        image.get("tag", ""),
+                    ),
+                )
             )
-            for image in refs.findall("image")
-            if "QSSI" not in image.get("name", "")
-        ]
+        return result
 
     @staticmethod
     def combine_manifests(sub_manifests: List[Tuple[str, str, str]]) -> ET.Element:
         root = ET.Element("manifest")
+        removed_elements = set()
+
         for name, tag, content in sub_manifests:
             if content:
                 comment = ET.Comment(f" {tag} ")
                 root.append(comment)
                 sub_root = ET.fromstring(content)
-                root.extend(
-                    element
-                    for element in sub_root
-                    if element.tag not in {"remote", "default"}
-                )
+                for element in sub_root:
+                    if element.tag in {"remote", "default"}:
+                        if element.tag not in removed_elements:
+                            logging.info(f"Removing all '{element.tag}' elements")
+                            removed_elements.add(element.tag)
+                        continue
+                    if element.tag == "project":
+                        project_name = element.get("name", "")
+                        project_path = element.get("path", "")
+                        if any(
+                            word in project_name or word in project_path
+                            for word in ManifestProcessor.BLACKLIST
+                        ):
+                            logging.info(
+                                f"Removing blacklisted project: {project_name} (path: {project_path})"
+                            )
+                            continue
+                    root.append(element)
         return root
 
     def process(self) -> bool:

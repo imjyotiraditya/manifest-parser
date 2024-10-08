@@ -20,8 +20,9 @@ class ManifestProcessor:
     MAIN_MANIFEST_PATH: str = "la/vendor/manifest/-/raw/release/{tag}.xml"
     BLACKLIST: List[str] = ["wfd", "test", "SnapdragonCamera"]
 
-    def __init__(self, tag: str):
+    def __init__(self, tag: str, output_file: str):
         self.tag: str = tag
+        self.output_file: str = output_file
         self.logger = logging.getLogger(self.__class__.__name__)
 
     @staticmethod
@@ -112,21 +113,21 @@ class ManifestProcessor:
 
         combined_root = self.combine_manifests(sub_manifests)
         ET.indent(combined_root)
-        output_file = f"{self.tag}.xml"
         tree = ET.ElementTree(combined_root)
-        tree.write(output_file, encoding="utf-8", xml_declaration=True)
-        self.logger.info(f"Combined manifest has been written to '{output_file}'")
+        tree.write(self.output_file, encoding="utf-8", xml_declaration=True)
+        self.logger.info(f"Combined manifest has been written to '{self.output_file}'")
         return True
 
 
 def main() -> None:
     script_name = Path(__file__).name
-    if len(sys.argv) != 2:
-        logging.error(f"Usage: python {script_name} TAG")
+    if len(sys.argv) not in [2, 3]:
+        logging.error(f"Usage: python {script_name} TAG [OUTPUT_FILE]")
         sys.exit(1)
 
     tag = sys.argv[1]
-    processor = ManifestProcessor(tag)
+    output_file = f"{sys.argv[2]}.xml" if len(sys.argv) == 3 else f"{tag}.xml"
+    processor = ManifestProcessor(tag, output_file)
     success = processor.process()
     sys.exit(0 if success else 1)
 

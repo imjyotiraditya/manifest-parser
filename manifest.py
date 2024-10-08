@@ -54,7 +54,7 @@ class ManifestProcessor:
                 ),
             )
             for image in refs.findall("image")
-            if image.get("name") != "LA.QSSI.13.0.R1"
+            if "QSSI" not in image.get("name", "")
         ]
 
     @staticmethod

@@ -32,9 +32,9 @@ class ManifestProcessor:
             logging.error(f"Failed to fetch manifest from {url}. Error: {e}")
             return None
 
-    @staticmethod
-    def generate_url(server: str, project: str, tag: str) -> str:
-        return f"{server}/{project}/-/raw/{tag}/{tag}.xml"
+    @classmethod
+    def generate_url(cls, project: str, tag: str) -> str:
+        return f"{cls.BASE_URL}/{project}/-/raw/{tag}/{tag}.xml"
 
     def process_main_manifest(self, xml_content: str) -> List[Tuple[str, str, str]]:
         root = ET.fromstring(xml_content)
@@ -48,7 +48,6 @@ class ManifestProcessor:
                 image.get("name", ""),
                 image.get("tag", ""),
                 self.generate_url(
-                    image.get("server", ""),
                     image.get("project", ""),
                     image.get("tag", ""),
                 ),
